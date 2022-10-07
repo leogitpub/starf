@@ -23,7 +23,9 @@ Betelgeuse	-> RA: 05h 55m 10.30536s / Dec: +07 24' 25.4304''
 Sirius		-> RA: 06h 45m 08.917s   / Dec: ~16 42' 58.02''
 Rigel		-> RA: 05h 14m 32.27210s / Dec: ~08 12' 05.8981''
 ```
-
+## Compilation
+To compile this code you need gcc installed in your machine. I use cygwin
+Run `g++ -static-libstdc++ -I /rootPath/ src/* include/* -o starf.exe`
 ## Author comments
 I am an Amateur Astronomer writing code as an Amateur C++ Programmer for my community.
 If you plan to use this program code, it is very much appreciated if you recognize my efforts
