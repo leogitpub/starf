@@ -36,14 +36,22 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 class StarOperations{
-	
 public:
-    char choice;
-    std::string latValue;
-    std::string lonValue;
+    // dummy constructor
+    StarOperations() {}
+
+    // parameterized constructor
+    StarOperations(std::string celName, std::string raValue, std::string decValue)
+    {
+        this->celName = celName;
+        this->raValue = raValue;
+        this->decValue = decValue;
+    }
+    std::string celName;
     std::string raValue;
     std::string decValue;
-    std::string fast;
+    std::string latValue;
+    std::string lonValue;
     std::vector<std::string> raStringSplit;
     std::vector<std::string> decStringSplit;
     double ratod;

@@ -46,61 +46,106 @@ Thanks in advance.
 #include <atomic>
 #include "include/StringOperations.h"
 #include "include/StarOperations.h"
+#include <windows.h>
 
-std::atomic<bool> stop = false;
+void clearScreen(){
 
-void start(StarOperations& so){
-  while(!stop){
-    so.jd= so.setJDToNow();
-    so.altaz= so.raDecToAltAz(so.ra, so.dec, so.lat, so.lon, so.jd);
-    so.printer="Alt:"+so.degreesToDMS(so.altaz[1]/so.toRad)+" Az: "+so.degreesToDMS(so.altaz[0]/so.toRad);
-    std::cout << so.printer << "\r";
-    //fflush ( stdin );
-    std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(so.fast)));
-    }
+   #if defined(_WIN32)
+       HANDLE                     hStdOut;
+       CONSOLE_SCREEN_BUFFER_INFO csbi;
+       DWORD                      count;
+       DWORD                      cellCount;
+       COORD                      homeCoords = { 0, 0 };
+
+       hStdOut = GetStdHandle( STD_OUTPUT_HANDLE );
+       if (hStdOut == INVALID_HANDLE_VALUE) return;
+
+       /* Get the number of cells in the current buffer */
+       if (!GetConsoleScreenBufferInfo( hStdOut, &csbi )) return;
+           cellCount = csbi.dwSize.X *csbi.dwSize.Y;
+
+       /* Fill the entire buffer with spaces */
+       if (!FillConsoleOutputCharacter(
+           hStdOut,
+           (TCHAR) ' ',
+           cellCount,
+           homeCoords,
+           &count
+        )) return;
+
+        /* Fill the entire buffer with the current colors and attributes */
+        if (!FillConsoleOutputAttribute(
+            hStdOut,
+            csbi.wAttributes,
+            cellCount,
+            homeCoords,
+            &count
+        )) return;
+
+        /* Move the cursor home */
+        SetConsoleCursorPosition( hStdOut, homeCoords );
+   #elif defined (__LINUX__) || defined(__gnu_linux__) || defined(__linux__)
+       //system("clear");
+       std::cout<< u8"\033[2J\033[1;1H"; //Using ANSI Escape Sequences
+   #elif defined (__APPLE__)
+       system("clear");
+   #endif
 }
 
-void initiateUserDataInputs(StarOperations& so){
-    std::cout << "\nPlease input Latitude in decimal: ";
-    getline(std::cin, so.latValue);
-    std::cout << "Please input Longitude in decimal: ";
-    getline(std::cin, so.lonValue);
-    std::cout << "Please input RA in \"HH MM SS\" format: ";
-    getline(std::cin, so.raValue);
-    std::cout << "Please input DEC in \"+/- DD MM SS\" format: ";
-    getline(std::cin, so.decValue);
-    std::cout << "Please input How fast you want new Alt/Az values in milliseconds: ";
-    getline(std::cin, so.fast);
+std::atomic<bool> stop = false;
+std::string latValue;
+std::string lonValue;
+std::string fast;
+char choice;
 
-    split(so.raValue, so.raStringSplit, ' ' );
-    split(so.decValue, so.decStringSplit, ' ' );
+void start(StarOperations* so, size_t so_size){
+  while(!stop){
+      clearScreen();
+      for (size_t i = 0; i < (so_size); i++) {
+         so[i].jd= so[i].setJDToNow();
+         so[i].altaz= so[i].raDecToAltAz(so[i].ra, so[i].dec, so[i].lat, so[i].lon, so[i].jd);
+         so[i].printer= so[i].celName + "\t-\tAlt:"+so[i].degreesToDMS(so[i].altaz[1]/so[i].toRad)+" Az: "+so[i].degreesToDMS(so[i].altaz[0]/so[i].toRad);
+         std::cout << so[i].printer << "\n";
+       }
+	  std::cout << "Press c and enter to break" << "\n";
+      std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(fast)));
+  }
+}
 
-    so.ratod = std::stold(so.raStringSplit[0]) + std::stold(so.raStringSplit[1])/60 + std::stold(so.raStringSplit[2])/3600;
-    so.dectos = so.decStringSplit[0] + std::to_string(std::stold(so.decStringSplit[1]) + std::stold(so.decStringSplit[2])/60 + std::stold(so.decStringSplit[3])/3600);
-    so.dectod = std::stold(so.dectos);
-    so.lat=std::stold(so.latValue)*so.toRad;
-    so.lon=std::stold(so.lonValue)*so.toRad;
-    so.ra=so.ratod*so.toRad*15; //Convert RA from hours to degrees, then to radians
-    so.dec=so.dectod*so.toRad;
+void initiateUserDataInputs(StarOperations* so, size_t so_size){
+    std::cout << "\nPlease input How fast you want new Alt/Az values in milliseconds: ";
+    getline(std::cin, fast);
+    std::cout << "\n" << R"(Do you wish to Start running the Alt/Az numbers? (Y/N): )";
+
     while(true){
-        std::cout << "\n" << R"(Do you wish to Start running the Alt/Az numbers? (Y/N): )";
-        std::cin >> so.choice;
-        if(so.choice =='Y' || so.choice =='y'){
-			std::cout << "Press c and enter to break" << "\n";
+        std::cin >> choice;
+        if(choice =='Y' || choice =='y'){
             break;
         }
-        else if(so.choice =='N' || so.choice =='n'){
+        else if(choice =='N' || choice =='n'){
             exit(10);
         }
     }
+
     std::cout << "\n";
-    std::thread t(start, std::ref(so));
-	t.detach();
+    for (size_t i = 0; i < (so_size); i++) {
+        split(so[i].raValue, so[i].raStringSplit, ' ' );
+        split(so[i].decValue, so[i].decStringSplit, ' ' );
+
+        so[i].ratod = std::stold(so[i].raStringSplit[0]) + std::stold(so[i].raStringSplit[1])/60 + std::stold(so[i].raStringSplit[2])/3600;
+        so[i].dectos = so[i].decStringSplit[0] + std::to_string(std::stold(so[i].decStringSplit[1]) + std::stold(so[i].decStringSplit[2])/60 + std::stold(so[i].decStringSplit[3])/3600);
+        so[i].dectod = std::stold(so[i].dectos);
+        so[i].lat=std::stold(latValue)*so[i].toRad;
+        so[i].lon=std::stold(lonValue)*so[i].toRad;
+        so[i].ra=so[i].ratod*so[i].toRad*15; //Convert RA from hours to degrees, then to radians
+        so[i].dec=so[i].dectod*so[i].toRad;
+    }
+
+    std::thread t(start, so, so_size);
+    t.detach();
 	while(std::cin.get() != 'c'){
 	}
 	stop = true;
-	initiateUserDataInputs(so);
-
 }
 
 int main(){
@@ -131,17 +176,30 @@ Betelgeuse	-> RA: 05h 55m 10.30536s / Dec: +07 24' 25.4304''
 Sirius		-> RA: 06h 45m 08.917s   / Dec: ~16 42' 58.02''
 Rigel		-> RA: 05h 14m 32.27210s / Dec: ~08 12' 05.8981''
 )" << '\n';
+    std::string noToTrack;
+    std::string raValue;
+    std::string decValue;
+    std::string celName;
+    std::cout << "\nInput Latitude in decimal: ";
+    getline(std::cin, latValue);
+    std::cout << "Input Longitude in decimal: ";
+    getline(std::cin, lonValue);
+    std::cout << "How many celestial bodies you want to track?: ";
+    getline(std::cin, noToTrack);
+    static const size_t N = std::stoi(noToTrack);
+    StarOperations* so = new StarOperations[N];
 
-    StarOperations so;
-    initiateUserDataInputs(so);
+    for (size_t i = 0; i < N; i++) {
+       std::cout << "\nInput Celestial body name: ";
+       getline(std::cin, celName);
+       std::cout << "Please input RA in \"HH MM SS\" format for " << celName << ": ";
+       getline(std::cin, raValue);
+       std::cout << "Please input DEC in \"+/- DD MM SS\" format for " << celName << ": ";
+       getline(std::cin, decValue);
+       so[i] = StarOperations(celName, raValue, decValue);
+    }
 
-    // Wait for input character (this will suspend the main thread, but the loop
-    // thread will keep running).
-
-    // Set the atomic boolean to true. The loop thread will exit from 
-    // loop and terminate.
-    
-
+    initiateUserDataInputs(so, N);
 
     return 0;
 }
