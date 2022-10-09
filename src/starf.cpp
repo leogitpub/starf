@@ -43,22 +43,24 @@ Thanks in advance.
 #include <cfloat>
 #include <string.h>
 #include <vector>
+#include <atomic>
 #include "include/StringOperations.h"
 #include "include/StarOperations.h"
 
+std::atomic<bool> stop = false;
 
-start(StarOperations& so){
-while(true){
+void start(StarOperations& so){
+  while(!stop){
     so.jd= so.setJDToNow();
     so.altaz= so.raDecToAltAz(so.ra, so.dec, so.lat, so.lon, so.jd);
-    so.r="Alt:"+so.degreesToDMS(so.altaz[1]/so.toRad)+" Az: "+so.degreesToDMS(so.altaz[0]/so.toRad);
-	std::cout << so.r << "\r";
-    fflush ( stdin );
-	std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(so.fast)));
+    so.printer="Alt:"+so.degreesToDMS(so.altaz[1]/so.toRad)+" Az: "+so.degreesToDMS(so.altaz[0]/so.toRad);
+    std::cout << so.printer << "\r";
+    //fflush ( stdin );
+    std::this_thread::sleep_for(std::chrono::milliseconds(std::stoi(so.fast)));
     }
 }
 
- void initiateUserDataInputs(StarOperations& so){
+void initiateUserDataInputs(StarOperations& so){
     std::cout << "\nPlease input Latitude in decimal: ";
     getline(std::cin, so.latValue);
     std::cout << "Please input Longitude in decimal: ";
@@ -67,16 +69,16 @@ while(true){
     getline(std::cin, so.raValue);
     std::cout << "Please input DEC in \"+/- DD MM SS\" format: ";
     getline(std::cin, so.decValue);
-	std::cout << "Please input How fast you want new Alt/Az values in milliseconds: ";
+    std::cout << "Please input How fast you want new Alt/Az values in milliseconds: ";
     getline(std::cin, so.fast);
 
-    split(so.raValue, so.v, ' ' );
-    split(so.decValue, so.v1, ' ' );
+    split(so.raValue, so.raStringSplit, ' ' );
+    split(so.decValue, so.decStringSplit, ' ' );
 
-    so.ratod = std::stold(so.v[0]) + std::stold(so.v[1])/60 + std::stold(so.v[2])/3600;
-    so.dectos = so.v1[0] + std::to_string(std::stold(so.v1[1]) + std::stold(so.v1[2])/60 + std::stold(so.v1[3])/3600);
+    so.ratod = std::stold(so.raStringSplit[0]) + std::stold(so.raStringSplit[1])/60 + std::stold(so.raStringSplit[2])/3600;
+    so.dectos = so.decStringSplit[0] + std::to_string(std::stold(so.decStringSplit[1]) + std::stold(so.decStringSplit[2])/60 + std::stold(so.decStringSplit[3])/3600);
     so.dectod = std::stold(so.dectos);
-	so.lat=std::stold(so.latValue)*so.toRad;
+    so.lat=std::stold(so.latValue)*so.toRad;
     so.lon=std::stold(so.lonValue)*so.toRad;
     so.ra=so.ratod*so.toRad*15; //Convert RA from hours to degrees, then to radians
     so.dec=so.dectod*so.toRad;
@@ -84,6 +86,7 @@ while(true){
         std::cout << "\n" << R"(Do you wish to Start running the Alt/Az numbers? (Y/N): )";
         std::cin >> so.choice;
         if(so.choice =='Y' || so.choice =='y'){
+			std::cout << "Press c and enter to break" << "\n";
             break;
         }
         else if(so.choice =='N' || so.choice =='n'){
@@ -91,13 +94,18 @@ while(true){
         }
     }
     std::cout << "\n";
-    start(so);
+    std::thread t(start, std::ref(so));
+	t.detach();
+	while(std::cin.get() != 'c'){
+	}
+	stop = true;
+	initiateUserDataInputs(so);
+
 }
 
-int main()
-{
+int main(){
 
-std::cout << R"(
+    std::cout << R"(
 
 Welcome to Starf, a celestial-body finder program written in C++.
 
@@ -124,8 +132,16 @@ Sirius		-> RA: 06h 45m 08.917s   / Dec: ~16 42' 58.02''
 Rigel		-> RA: 05h 14m 32.27210s / Dec: ~08 12' 05.8981''
 )" << '\n';
 
-StarOperations so;
-initiateUserDataInputs(so);
+    StarOperations so;
+    initiateUserDataInputs(so);
 
-return 0;
+    // Wait for input character (this will suspend the main thread, but the loop
+    // thread will keep running).
+
+    // Set the atomic boolean to true. The loop thread will exit from 
+    // loop and terminate.
+    
+
+
+    return 0;
 }
